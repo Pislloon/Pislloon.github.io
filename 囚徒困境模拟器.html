@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>囚徒困境模拟器 — Axelrod Tournament</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --dark: #1a1a1a;
+    --medium: #555;
+    --light: #aaa;
+    --accent: #e05030;
+    --accent2: #2c5f8a;
+    --accent3: #3a7d5a;
+    --white: #fff;
+    --gray: #e8e8e8;
+    --line: #d0d0d0;
+    --card: #fff;
+    --cooperate: #3a7d5a;
+    --defect: #c0392b;
+    --gold: #c49a2c;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --radius: 10px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI','Microsoft YaHei','PingFang HK',sans-serif;
+    background: var(--bg);
+    color: var(--dark);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .header {
+    background: var(--dark);
+    padding: 1.8rem 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+  }
+  .header h1 {
+    color: var(--white);
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .header .sub {
+    color: #999;
+    font-size: 0.9rem;
+    margin-top: 0.3rem;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .section-title::before {
+    content: '';
+    display: inline-block;
+    width: 4px; height: 1.1rem;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--gray);
+  }
+
+  .model-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.8rem;
+    margin-bottom: 1.2rem;
+  }
+  @media (max-width: 820px) { .model-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .model-grid { grid-template-columns: 1fr; } }
+
+  .model-card {
+    border: 2px solid var(--gray);
+    border-radius: var(--radius);
+    padding: 1rem 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    position: relative;
+    background: var(--white);
+  }
+  .model-card:hover {
+    border-color: #bbb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  .model-card.selected {
+    border-color: var(--accent);
+    background: #fef7f5;
+  }
+  .model-card .emoji { font-size: 2rem; margin-bottom: 0.3rem; }
+  .model-card .name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--dark);
+  }
+  .model-card .eng {
+    font-size: 0.72rem;
+    color: var(--light);
+    margin-bottom: 0.4rem;
+  }
+  .model-card .desc {
+    font-size: 0.78rem;
+    color: var(--medium);
+    line-height: 1.4;
+  }
+  .model-card .badge {
+    position: absolute;
+    top: 0.5rem; right: 0.5rem;
+    font-size: 0.65rem;
+    background: var(--accent);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    display: none;
+  }
+  .model-card.selected .badge { display: block; }
+
+  .selection-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .picker-group label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  select, input[type=number] {
+    font-family: inherit;
+    font-size: 0.9rem;
+    padding: 0.5rem 0.8rem;
+    border: 2px solid var(--gray);
+    border-radius: 6px;
+    background: var(--white);
+    color: var(--dark);
+    min-width: 140px;
+    transition: border-color 0.2s;
+  }
+  select:focus, input[type=number]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .vs-text {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent);
+  }
+
+  .btn {
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.6rem 1.4rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #c94028; }
+  .btn-outline { background: white; color: var(--accent); border: 2px solid var(--accent); }
+  .btn-outline:hover { background: #fef7f5; }
+  .btn-random { background: var(--accent2); color: white; }
+  .btn-random:hover { background: #234d70; }
+  .btn-sm { font-size: 0.78rem; padding: 0.35rem 0.8rem; }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .btn-row {
+    display: flex;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+
+  .payoff-mini {
+    display: grid;
+    grid-template-columns: auto 60px 60px;
+    gap: 2px;
+    font-size: 0.78rem;
+    margin-top: 0.5rem;
+  }
+  .payoff-mini .cell {
+    background: var(--gray);
+    padding: 4px 8px;
+    text-align: center;
+    border-radius: 3px;
+  }
+  .payoff-mini .hdr { background: var(--dark); color: white; font-weight: 600; }
+
+  .arena-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .round-counter {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .score-display {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .score-p1 { color: var(--accent2); }
+  .score-p2 { color: var(--accent); }
+
+  .rounds-container {
+    max-height: 480px;
+    overflow-y: auto;
+    margin-bottom: 0.5rem;
+    border-radius: 6px;
+  }
+  .rounds-container::-webkit-scrollbar { width: 5px; }
+  .rounds-container::-webkit-scrollbar-thumb { background: var(--line); border-radius: 10px; }
+
+  .round-row {
+    display: grid;
+    grid-template-columns: 50px 1fr 1fr 50px 50px;
+    gap: 0;
+    align-items: center;
+    font-size: 0.82rem;
+    padding: 6px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.15s;
+  }
+  .round-row:hover { background: #fafafa; }
+  .round-num { color: var(--light); font-weight: 600; }
+  .round-choice {
+    text-align: center;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    display: inline-block;
+    width: fit-content;
+  }
+  .choice-C { background: #e8f5e9; color: var(--cooperate); }
+  .choice-D { background: #fdecea; color: var(--defect); }
+  .round-score { text-align: center; font-weight: 600; }
+
+  .summary-banner {
+    background: var(--dark);
+    color: white;
+    border-radius: var(--radius);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    margin-top: 1rem;
+  }
+  .summary-banner .winner {
+    font-size: 2.4rem;
+    font-weight: 800;
+    margin-bottom: 0.6rem;
+    text-shadow: 0 0 30px rgba(224,80,48,0.4);
+  }
+  .summary-banner .score-line {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.5rem;
+    line-height: 1.8;
+  }
+  .summary-banner .score-line .highlight {
+    color: #f5c542;
+    font-size: 1.5rem;
+  }
+  .summary-banner .detail {
+    font-size: 1.05rem;
+    color: #ccc;
+    line-height: 1.7;
+    margin-bottom: 0.5rem;
+  }
+  .summary-banner .accent-text {
+    color: #f0a080;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.7;
+  }
+
+  .history-list {
+    list-style: none;
+    font-size: 0.8rem;
+    color: var(--medium);
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .history-list li {
+    padding: 4px 8px;
+    border-bottom: 1px solid #f5f5f5;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  @keyframes fadeIn {
+    from { opacity:0; transform: translateY(8px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+  .fade-in { animation: fadeIn 0.3s ease; }
+
+  /* ── Scoreboard ── */
+  .scoreboard-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--gray);
+  }
+  .scoreboard-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .scoreboard-title .label-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .scoreboard-title .label-row::before {
+    content: '';
+    display: inline-block;
+    width: 4px; height: 1rem;
+    background: var(--accent2);
+    border-radius: 2px;
+  }
+  .scoreboard-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+  }
+  @media (max-width: 900px) { .scoreboard-grid { grid-template-columns: repeat(4, 1fr); } }
+  @media (max-width: 550px) { .scoreboard-grid { grid-template-columns: repeat(2, 1fr); } }
+  .score-cell {
+    background: #f9f9f9;
+    border-radius: 6px;
+    padding: 0.6rem 0.5rem;
+    text-align: center;
+    transition: background 0.3s;
+    border: 1px solid transparent;
+  }
+  .score-cell.updated {
+    background: #fef7f5;
+    border-color: var(--accent);
+    animation: pulseUpdate 0.5s ease;
+  }
+  @keyframes pulseUpdate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+  .score-cell .sc-emoji { font-size: 1.2rem; }
+  .score-cell .sc-name {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin: 0.15rem 0;
+  }
+  .score-cell .sc-total {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--accent2);
+  }
+  .score-cell .sc-games {
+    font-size: 0.62rem;
+    color: var(--light);
+    margin-top: 0.1rem;
+  }
+  .score-cell .sc-avg {
+    font-size: 0.65rem;
+    color: var(--medium);
+    font-weight: 600;
+    margin-top: 0.05rem;
+  }
+  .score-cell.leader {
+    background: #fef9f0;
+    border-color: var(--gold);
+  }
+  .score-cell.leader .sc-total { color: var(--gold); }
+
+  /* ── Tournament standings ── */
+  .tournament-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+  }
+  .tournament-table th {
+    background: var(--dark);
+    color: white;
+    padding: 8px 10px;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-align: center;
+  }
+  .tournament-table td {
+    padding: 7px 10px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+  }
+  .tournament-table tr:hover td { background: #fafafa; }
+  .tournament-table .rank-1 { background: #fffdf0; font-weight: 700; }
+  .tournament-table .rank-2 { background: #fdfdfd; }
+  .tournament-table .rank-3 { background: #fdfdfd; }
+  .tournament-table .gold-rank { color: var(--gold); font-weight: 800; }
+
+  .footer {
+    text-align: center;
+    padding: 1rem;
+    color: var(--light);
+    font-size: 0.75rem;
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    margin: 0.5rem 0;
+    background: var(--gray);
+    border-radius: 20px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s;
+    border-radius: 20px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚔️ 囚徒困境模拟器</h1>
+  <div class="sub">基于 Robert Axelrod (1980) 经典锦标赛实验 &nbsp;|&nbsp; 收益矩阵：T=5, R=3, P=1, S=0</div>
+</div>
+
+<div class="container">
+
+  <!-- STEP 1: Model Cards -->
+  <div class="card fade-in">
+    <div class="section-title">① 认识七款策略模型</div>
+    <div class="model-grid" id="modelGrid">
+      <div class="model-card" data-model="0" onclick="toggleModel(0)">
+        <span class="badge">已选</span>
+        <div class="emoji">😇</div>
+        <div class="name">老好人</div>
+        <div class="eng">Always Cooperate</div>
+        <div class="desc">无论对手做什么，每次都选择「合作」。天真善良，但容易被剥削。</div>
+      </div>
+      <div class="model-card" data-model="1" onclick="toggleModel(1)">
+        <span class="badge">已选</span>
+        <div class="emoji">😈</div>
+        <div class="name">阴险小人</div>
+        <div class="eng">Sneaky Defector</div>
+        <div class="desc">一开始假装合作，在总回合 30%~60% 之间的某个固定时刻突然翻脸，之后永远背叛。</div>
+      </div>
+      <div class="model-card" data-model="2" onclick="toggleModel(2)">
+        <span class="badge">已选</span>
+        <div class="emoji">🤪</div>
+        <div class="name">疯子</div>
+        <div class="eng">Random</div>
+        <div class="desc">完全不可预测，每次随机选择合作或背叛（50/50）。</div>
+      </div>
+      <div class="model-card" data-model="3" onclick="toggleModel(3)">
+        <span class="badge">已选</span>
+        <div class="emoji">🪞</div>
+        <div class="name">一报还一报</div>
+        <div class="eng">Tit For Tat</div>
+        <div class="desc">首轮合作，之后完全模仿对手上一轮的行为。Axelrod 锦标赛总冠军。</div>
+      </div>
+      <div class="model-card" data-model="4" onclick="toggleModel(4)">
+        <span class="badge">已选</span>
+        <div class="emoji">👹</div>
+        <div class="name">老坏人</div>
+        <div class="eng">Always Defect</div>
+        <div class="desc">无论对手做什么，每次都选择「背叛」。极端自私，从不合作。</div>
+      </div>
+      <div class="model-card" data-model="5" onclick="toggleModel(5)">
+        <span class="badge">已选</span>
+        <div class="emoji">🎭</div>
+        <div class="name">伪君子</div>
+        <div class="eng">Periodic Betrayer</div>
+        <div class="desc">合作 3~5 轮后背叛一次，然后重复这个循环。表面合作，定时捅刀。</div>
+      </div>
+      <div class="model-card" data-model="6" onclick="toggleModel(6)">
+        <span class="badge">已选</span>
+        <div class="emoji">💢</div>
+        <div class="name">一报还一报·恶</div>
+        <div class="eng">TFT (Hostile Start)</div>
+        <div class="desc">与 TFT 相同，但首轮先选择背叛。以牙还牙，但先出手伤人。</div>
+      </div>
+    </div>
+    <div style="font-size:0.78rem;color:var(--light);margin-top:0.3rem;">
+      💡 点击卡片选择两款模型对战（可选相同模型）
+    </div>
+  </div>
+
+  <!-- STEP 2: Setup -->
+  <div class="card fade-in">
+    <div class="section-title">② 设定对战组合</div>
+    <div class="selection-row">
+      <div class="picker-group">
+        <label>玩家 A：</label>
+        <select id="playerA"></select>
+      </div>
+      <span class="vs-text">VS</span>
+      <div class="picker-group">
+        <label>玩家 B：</label>
+        <select id="playerB"></select>
+      </div>
+      <div class="picker-group">
+        <label>回合数：</label>
+        <input type="number" id="numRounds" value="20" min="1" max="500" style="width:90px;">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="startBattle()" id="btnStart">▶ 开始模拟</button>
+      <button class="btn btn-random" onclick="randomBattle()">🎲 随机对战</button>
+      <button class="btn btn-outline btn-sm" onclick="resetAll()">↺ 重置</button>
+      <button class="btn btn-primary" onclick="runTournament()" id="btnTournament" style="background:var(--accent3);">🏆 锦标赛</button>
+    </div>
+    <div style="margin-top:0.6rem; font-size:0.75rem; color:var(--light);">
+      🎲 随机对战：随机挑选一款模型 vs 随机模型，进行 10~50 回合 &nbsp;|&nbsp; 🏆 锦标赛：7×7 全部组合各战 200 回合
+    </div>
+
+    <!-- payoff matrix mini -->
+    <div style="margin-top:1rem;">
+      <span style="font-weight:700;font-size:0.85rem;">收益矩阵参考：</span>
+      <div class="payoff-mini">
+        <div class="cell"></div><div class="cell hdr">B 合作</div><div class="cell hdr">B 背叛</div>
+        <div class="cell hdr">A 合作</div><div class="cell">(3, 3)</div><div class="cell">(0, 5)</div>
+        <div class="cell hdr">A 背叛</div><div class="cell">(5, 0)</div><div class="cell">(1, 1)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Arena -->
+  <div class="card fade-in" id="arenaCard" style="display:none;">
+    <div class="section-title">③ 对战实况</div>
+    <div class="progress-wrap" id="progressWrap"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
+    <div class="arena-header">
+      <span class="round-counter" id="roundLabel">回合 0 / 0</span>
+      <div class="score-display">
+        <span class="score-p1" id="scoreA">玩家 A：0 分</span>
+        <span class="score-p2" id="scoreB">玩家 B：0 分</span>
+      </div>
+    </div>
+    <div class="rounds-container" id="roundsContainer"></div>
+    <div id="summaryArea"></div>
+  </div>
+
+</div>
+
+<div class="footer">
+  囚徒困境模拟器 &copy; 2026 &nbsp;|&nbsp; 灵感来自 Robert Axelrod, <em>The Evolution of Cooperation</em> (1984)
+</div>
+
+<!-- ══ 累计积分榜 ══ -->
+<div class="container" id="scoreboardContainer" style="display:none;">
+  <div class="scoreboard-card fade-in" id="scoreboardCard">
+    <div class="scoreboard-title">
+      <span class="label-row">🏅 累计积分榜</span>
+      <button class="btn btn-outline btn-sm" onclick="resetStats()" style="font-size:0.7rem;padding:0.2rem 0.6rem;">↺ 重置积分</button>
+    </div>
+    <div class="scoreboard-grid" id="scoreboardGrid"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════
+const models = [
+  {
+    id: 0, name: '老好人', eng: 'Always Cooperate',
+    emoji: '😇',
+    desc: '无论对手做什么，每次都选择「合作」。天真善良，但容易被剥削。',
+    strategy: 'always-cooperate'
+  },
+  {
+    id: 1, name: '阴险小人', eng: 'Sneaky Defector',
+    emoji: '😈',
+    desc: '一开始假装合作，在总回合 30%~60% 之间的某个固定时刻突然翻脸，之后永远背叛。',
+    strategy: 'sneaky'
+  },
+  {
+    id: 2, name: '疯子', eng: 'Random',
+    emoji: '🤪',
+    desc: '完全不可预测，每次随机选择合作或背叛（50/50）。',
+    strategy: 'random'
+  },
+  {
+    id: 3, name: '一报还一报', eng: 'Tit For Tat',
+    emoji: '🪞',
+    desc: '首轮合作，之后完全模仿对手上一轮的行为。Axelrod 锦标赛总冠军。',
+    strategy: 'tit-for-tat'
+  },
+  {
+    id: 4, name: '老坏人', eng: 'Always Defect',
+    emoji: '👹',
+    desc: '无论对手做什么，每次都选择「背叛」。极端自私，从不合作。',
+    strategy: 'always-defect'
+  },
+  {
+    id: 5, name: '伪君子', eng: 'Periodic Betrayer',
+    emoji: '🎭',
+    desc: '合作 3~5 轮后背叛一次，然后重复这个循环。表面合作，定时捅刀。',
+    strategy: 'periodic-betrayer'
+  },
+  {
+    id: 6, name: '一报还一报·恶', eng: 'TFT (Hostile Start)',
+    emoji: '💢',
+    desc: '与 TFT 相同，但首轮先选择背叛。以牙还牙，但先出手伤人。',
+    strategy: 'tft-hostile'
+  }
+];
+
+const PAYOFF = {
+  'CC': [3, 3],
+  'CD': [0, 5],
+  'DC': [5, 0],
+  'DD': [1, 1]
+};
+
+// ═══════════════════════════════════════════
+//  CUMULATIVE STATS
+// ═══════════════════════════════════════════
+const modelStats = {};
+models.forEach(m => {
+  modelStats[m.id] = { totalScore: 0, gamesPlayed: 0 };
+});
+
+function updateStats(modelAId, scoreA, modelBId, scoreB) {
+  modelStats[modelAId].totalScore += scoreA;
+  modelStats[modelAId].gamesPlayed += 1;
+  modelStats[modelBId].totalScore += scoreB;
+  modelStats[modelBId].gamesPlayed += 1;
+  renderScoreboard([modelAId, modelBId]);
+}
+
+function renderScoreboard(updatedIds) {
+  const container = document.getElementById('scoreboardContainer');
+  const grid = document.getElementById('scoreboardGrid');
+  const hasGames = models.some(m => modelStats[m.id].gamesPlayed > 0);
+  container.style.display = hasGames ? 'block' : 'none';
+  if (!hasGames) return;
+
+  // Find leader
+  let maxAvg = -1;
+  models.forEach(m => {
+    const s = modelStats[m.id];
+    if (s.gamesPlayed > 0) {
+      const avg = s.totalScore / s.gamesPlayed;
+      if (avg > maxAvg) maxAvg = avg;
+    }
+  });
+
+  grid.innerHTML = '';
+  models.forEach(m => {
+    const s = modelStats[m.id];
+    const avg = s.gamesPlayed > 0 ? (s.totalScore / s.gamesPlayed).toFixed(1) : '—';
+    const isLeader = s.gamesPlayed > 0 && (s.totalScore / s.gamesPlayed) >= maxAvg;
+    const wasUpdated = updatedIds && updatedIds.includes(m.id);
+
+    const cell = document.createElement('div');
+    cell.className = 'score-cell';
+    if (isLeader) cell.classList.add('leader');
+    if (wasUpdated) cell.classList.add('updated');
+    // Remove updated class after animation
+    if (wasUpdated) {
+      setTimeout(() => cell.classList.remove('updated'), 600);
+    }
+
+    cell.innerHTML =
+      '<div class="sc-emoji">' + m.emoji + '</div>' +
+      '<div class="sc-name">' + m.name + '</div>' +
+      '<div class="sc-total">' + s.totalScore + '</div>' +
+      '<div class="sc-games">' + s.gamesPlayed + ' 场对战</div>' +
+      '<div class="sc-avg">均分 ' + avg + '</div>';
+    grid.appendChild(cell);
+  });
+}
+
+function resetStats() {
+  models.forEach(m => {
+    modelStats[m.id] = { totalScore: 0, gamesPlayed: 0 };
+  });
+  document.getElementById('scoreboardContainer').style.display = 'none';
+}
+
+let selectedModels = new Set();
+let battleInterval = null;
+let isBattling = false;
+let battleState = null;
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+function populateSelects() {
+  const selA = document.getElementById('playerA');
+  const selB = document.getElementById('playerB');
+  selA.innerHTML = '';
+  selB.innerHTML = '';
+  models.forEach(m => {
+    const optA = document.createElement('option');
+    optA.value = m.id;
+    optA.textContent = m.emoji + ' ' + m.name + ' (' + m.eng + ')';
+    selA.appendChild(optA);
+    const optB = document.createElement('option');
+    optB.value = m.id;
+    optB.textContent = m.emoji + ' ' + m.name + ' (' + m.eng + ')';
+    selB.appendChild(optB);
+  });
+  selA.value = '3';
+  selB.value = '1';
+  selectedModels = new Set([3, 1]);
+  updateCardSelection();
+}
+
+function updateCardSelection() {
+  document.querySelectorAll('.model-card').forEach(card => {
+    const mid = parseInt(card.dataset.model);
+    card.classList.toggle('selected', selectedModels.has(mid));
+  });
+  const arr = Array.from(selectedModels);
+  if (arr.length >= 1) document.getElementById('playerA').value = arr[0];
+  if (arr.length >= 2) document.getElementById('playerB').value = arr[1];
+}
+
+function toggleModel(id) {
+  if (selectedModels.has(id)) {
+    if (selectedModels.size <= 1) return;
+    selectedModels.delete(id);
+  } else {
+    if (selectedModels.size >= 2) {
+      const first = selectedModels.values().next().value;
+      selectedModels.delete(first);
+    }
+    selectedModels.add(id);
+  }
+  updateCardSelection();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  populateSelects();
+  document.getElementById('playerA').addEventListener('change', function() {
+    selectedModels = new Set([parseInt(this.value), parseInt(document.getElementById('playerB').value)]);
+    updateCardSelection();
+  });
+  document.getElementById('playerB').addEventListener('change', function() {
+    selectedModels = new Set([parseInt(document.getElementById('playerA').value), parseInt(this.value)]);
+    updateCardSelection();
+  });
+});
+
+// ═══════════════════════════════════════════
+//  STRATEGY ENGINE
+// ═══════════════════════════════════════════
+function getMove(model, round, myHistory, oppHistory, totalRounds) {
+  switch (model.strategy) {
+    case 'always-cooperate':
+      return 'C';
+
+    case 'sneaky': {
+      // 固定背叛点：在总回合 30%~60% 之间的某个位置一次性确定
+      const base = Math.floor(totalRounds * 0.3);
+      const range = Math.floor(totalRounds * 0.3);
+      const seed = (totalRounds * 17 + 31) % range;
+      const betrayalRound = Math.max(3, base + seed);
+      if (round < betrayalRound) return 'C';
+      return 'D';
+    }
+
+    case 'random':
+      return Math.random() < 0.5 ? 'C' : 'D';
+
+    case 'tit-for-tat':
+      if (round === 1) return 'C';
+      return oppHistory[oppHistory.length - 1];
+
+    case 'always-defect':
+      return 'D';
+
+    case 'periodic-betrayer': {
+      // 固定循环周期：3~5，基于模型 id 确定，整场不变
+      const cycleLen = 3 + ((model.id * 7 + totalRounds) % 3); // 3, 4, or 5
+      if (round % cycleLen === 0) return 'D';
+      return 'C';
+    }
+
+    case 'tft-hostile':
+      if (round === 1) return 'D';
+      return oppHistory[oppHistory.length - 1];
+
+    default:
+      return 'C';
+  }
+}
+
+// ═══════════════════════════════════════════
+//  BATTLE
+// ═══════════════════════════════════════════
+function startBattle() {
+  if (isBattling) {
+    stopBattle();
+    return;
+  }
+
+  // If resuming a finished battle, restart
+  if (battleState && battleState.finished) {
+    battleState = null;
+    document.getElementById('roundsContainer').innerHTML = '';
+    document.getElementById('summaryArea').innerHTML = '';
+  }
+
+  const modelAId = parseInt(document.getElementById('playerA').value);
+  const modelBId = parseInt(document.getElementById('playerB').value);
+  const totalRounds = parseInt(document.getElementById('numRounds').value) || 20;
+
+  if (totalRounds < 1 || totalRounds > 500) {
+    alert('请输入 1~500 之间的回合数');
+    return;
+  }
+
+  const modelA = models[modelAId];
+  const modelB = models[modelBId];
+
+  battleState = {
+    modelA, modelB,
+    totalRounds,
+    currentRound: 0,
+    historyA: [],
+    historyB: [],
+    scoreA: 0,
+    scoreB: 0,
+    rounds: [],
+    finished: false
+  };
+
+  const arena = document.getElementById('arenaCard');
+  arena.style.display = 'block';
+  arena.scrollIntoView({ behavior: 'smooth' });
+
+  document.getElementById('roundsContainer').innerHTML = '';
+  document.getElementById('summaryArea').innerHTML = '';
+  document.getElementById('scoreA').textContent = modelA.emoji + ' ' + modelA.name + '：0 分';
+  document.getElementById('scoreB').textContent = modelB.emoji + ' ' + modelB.name + '：0 分';
+  document.getElementById('roundLabel').textContent = '回合 0 / ' + totalRounds;
+  document.getElementById('progressFill').style.width = '0%';
+
+  document.getElementById('btnStart').textContent = '⏸ 停止';
+  isBattling = true;
+  setInputsDisabled(true);
+  runNextRound();
+}
+
+function runNextRound() {
+  if (!battleState || battleState.finished) return;
+  if (!isBattling) return;
+
+  const st = battleState;
+  st.currentRound++;
+  const round = st.currentRound;
+
+  const moveA = getMove(st.modelA, round, st.historyA, st.historyB, st.totalRounds);
+  const moveB = getMove(st.modelB, round, st.historyB, st.historyA, st.totalRounds);
+
+  st.historyA.push(moveA);
+  st.historyB.push(moveB);
+
+  const key = moveA + moveB;
+  const [payA, payB] = PAYOFF[key];
+  st.scoreA += payA;
+  st.scoreB += payB;
+
+  st.rounds.push({ round, moveA, moveB, payA, payB, scoreA: st.scoreA, scoreB: st.scoreB });
+
+  // Batch update for speed when many rounds
+  appendRoundRow(st.rounds[st.rounds.length - 1], st.modelA, st.modelB);
+  document.getElementById('scoreA').textContent = st.modelA.emoji + ' ' + st.modelA.name + '：' + st.scoreA + ' 分';
+  document.getElementById('scoreB').textContent = st.modelB.emoji + ' ' + st.modelB.name + '：' + st.scoreB + ' 分';
+  document.getElementById('roundLabel').textContent = '回合 ' + round + ' / ' + st.totalRounds;
+  document.getElementById('progressFill').style.width = (round / st.totalRounds * 100) + '%';
+
+  const container = document.getElementById('roundsContainer');
+  container.scrollTop = container.scrollHeight;
+
+  if (round >= st.totalRounds) {
+    finishBattle();
+  } else if (isBattling) {
+    const delay = st.totalRounds > 50 ? 5 : 40;
+    battleInterval = setTimeout(runNextRound, delay);
+  }
+}
+
+function appendRoundRow(r, modelA, modelB) {
+  const container = document.getElementById('roundsContainer');
+  const div = document.createElement('div');
+  div.className = 'round-row fade-in';
+  const choiceClassA = r.moveA === 'C' ? 'choice-C' : 'choice-D';
+  const choiceClassB = r.moveB === 'C' ? 'choice-C' : 'choice-D';
+  const labelA = r.moveA === 'C' ? '🤝 合作' : '🗡️ 背叛';
+  const labelB = r.moveB === 'C' ? '🤝 合作' : '🗡️ 背叛';
+
+  div.innerHTML =
+    '<span class="round-num">#' + r.round + '</span>' +
+    '<span style="text-align:center;"><span class="round-choice ' + choiceClassA + '">' + labelA + '</span></span>' +
+    '<span style="text-align:center;"><span class="round-choice ' + choiceClassB + '">' + labelB + '</span></span>' +
+    '<span class="round-score" style="color:var(--accent2);">+' + r.payA + '</span>' +
+    '<span class="round-score" style="color:var(--accent);">+' + r.payB + '</span>';
+  container.appendChild(div);
+}
+
+function stopBattle() {
+  isBattling = false;
+  if (battleInterval) { clearTimeout(battleInterval); battleInterval = null; }
+  document.getElementById('btnStart').textContent = '▶ 继续模拟';
+  setInputsDisabled(false);
+  document.getElementById('numRounds').disabled = false;
+}
+
+function finishBattle() {
+  isBattling = false;
+  battleState.finished = true;
+  document.getElementById('btnStart').textContent = '🔄 重新模拟';
+  setInputsDisabled(false);
+
+  const st = battleState;
+  const nameA = st.modelA.name;
+  const nameB = st.modelB.name;
+  const emojiA = st.modelA.emoji;
+  const emojiB = st.modelB.emoji;
+
+  const coopA = st.historyA.filter(c => c === 'C').length;
+  const coopB = st.historyB.filter(c => c === 'C').length;
+  const rateA = ((coopA / st.totalRounds) * 100).toFixed(0);
+  const rateB = ((coopB / st.totalRounds) * 100).toFixed(0);
+
+  let winnerHTML = '';
+  let analysisHTML = '';
+  if (st.scoreA > st.scoreB) {
+    winnerHTML = '🏆 <strong>' + emojiA + ' ' + nameA + '</strong> 胜出！';
+    analysisHTML = nameA + ' 以 ' + st.scoreA + ' : ' + st.scoreB + ' 击败 ' + nameB + '，净胜 ' + (st.scoreA - st.scoreB) + ' 分。';
+  } else if (st.scoreB > st.scoreA) {
+    winnerHTML = '🏆 <strong>' + emojiB + ' ' + nameB + '</strong> 胜出！';
+    analysisHTML = nameB + ' 以 ' + st.scoreB + ' : ' + st.scoreA + ' 击败 ' + nameA + '，净胜 ' + (st.scoreB - st.scoreA) + ' 分。';
+  } else {
+    winnerHTML = '🤝 <strong>平手！</strong>';
+    analysisHTML = '双方各得 ' + st.scoreA + ' 分，势均力敌。';
+  }
+
+  let insight = generateInsight(st);
+
+  document.getElementById('summaryArea').innerHTML =
+    '<div class="summary-banner fade-in">' +
+      '<div class="winner">' + winnerHTML + '</div>' +
+      '<div class="score-line">' +
+        emojiA + ' ' + nameA + '：<span class="highlight">' + st.scoreA + ' 分</span>（合作率 ' + rateA + '%）&nbsp;&nbsp;|&nbsp;&nbsp;' +
+        emojiB + ' ' + nameB + '：<span class="highlight">' + st.scoreB + ' 分</span>（合作率 ' + rateB + '%）' +
+      '</div>' +
+      '<div class="detail">' +
+        analysisHTML +
+      '</div>' +
+      '<span class="accent-text">📊 ' + insight + '</span>' +
+    '</div>';
+
+  document.getElementById('summaryArea').scrollIntoView({ behavior: 'smooth' });
+
+  // Update cumulative scoreboard
+  updateStats(st.modelA.id, st.scoreA, st.modelB.id, st.scoreB);
+}
+
+function generateInsight(st) {
+  const sa = st.modelA.strategy;
+  const sb = st.modelB.strategy;
+
+  if (sa === 'tit-for-tat' && sb === 'always-cooperate') {
+    return 'TFT 与老好人相遇：双方从头到尾合作，获得相同满分。这展示了 TFT「善良」的一面——两个善良策略相遇时，合作自然产生。';
+  }
+  if (sa === 'always-cooperate' && sb === 'tit-for-tat') {
+    return '老好人与 TFT 相遇：双方从头到尾合作，获得相同满分。TFT 的善良使双方都能享受合作的果实。';
+  }
+  if (sa === 'tit-for-tat' && sb === 'sneaky') {
+    return 'TFT 在阴险小人背叛后立即以背叛回应，有效遏制了被剥削。阴险小人前期伪装合作，翻脸后双方陷入永久相互背叛。TFT 的即时报复防止了持续被剥削。';
+  }
+  if (sa === 'sneaky' && sb === 'tit-for-tat') {
+    return '阴险小人前期伪装合作，翻脸后 TFT 立即以背叛回应。TFT 的即时报复使阴险小人无法持续剥削，双方陷入相互背叛。';
+  }
+  if (sa === 'always-cooperate' && sb === 'sneaky') {
+    return '老好人面对阴险小人会被严重剥削：前期双方合作，阴险小人翻脸后，老好人持续合作（次次得 0 分），阴险小人次次得 5 分。善良而没有报复机制是致命的弱点。';
+  }
+  if (sa === 'sneaky' && sb === 'always-cooperate') {
+    return '阴险小人严重剥削老好人：翻脸后老好人依然坚持合作，阴险小人每次背叛都获得最高分。这说明了纯粹的善良在没有防御机制时有多危险。';
+  }
+  if (sa === 'tit-for-tat' && sb === 'random') {
+    return 'TFT 对疯子：疯子的随机背叛会触发 TFT 的报复，导致频繁相互背叛。但 TFT 的宽容性也使双方在疯子随机选择合作时有机会短暂回到合作。双方的合作率都不会太高。';
+  }
+  if (sa === 'random' && sb === 'tit-for-tat') {
+    return '疯子对 TFT：疯子的随机背叛不断触发 TFT 的报复。这展示了随机策略的困境——既无法建立稳定合作，也无法有效剥削。';
+  }
+  if (sa === 'tit-for-tat' && sb === 'tit-for-tat') {
+    return '两个 TFT 相遇：第一轮合作后，双方永远相互合作，获得完美满分。这正是阿克塞尔罗德发现的核心：TFT 与 TFT 之间的自发合作是最稳定、最高效的。';
+  }
+  if (sa === 'always-cooperate' && sb === 'random') {
+    return '老好人对疯子：老好人永远合作，疯子随机选择。疯子合作时双方各得 3 分，疯子背叛时疯子得 5 分、老好人得 0 分。老好人无法防御随机的背叛。';
+  }
+  if (sa === 'sneaky' && sb === 'random') {
+    return '阴险小人对疯子：阴险小人前期伪装合作，后期背叛（背叛点由总回合数固定决定）。对上随机的疯子，策略效果取决于疯子的随机结果。';
+  }
+
+  // ─── 新模型 (4:老坏人, 5:伪君子, 6:TFT·恶) ───
+  if (sa === 'always-defect' && sb === 'always-defect') {
+    return '两个老坏人相遇：双方永远相互背叛，每轮各得 1 分。囚徒困境中最低效的均衡——两个只懂背叛的玩家一起沉沦。';
+  }
+  if ((sa === 'always-defect' && sb === 'always-cooperate') || (sa === 'always-cooperate' && sb === 'always-defect')) {
+    const victim = sa === 'always-cooperate' ? st.modelA.name : st.modelB.name;
+    return '老坏人 vs 老好人：一场屠杀。老坏人每轮得 5 分，' + victim + '每轮得 0 分。这是最极端的剥削——善良在面对纯粹恶意时毫无招架之力。';
+  }
+  if ((sa === 'always-defect' && sb === 'tit-for-tat') || (sa === 'tit-for-tat' && sb === 'always-defect')) {
+    return '老坏人 vs TFT：TFT 首轮合作被背叛（得 0 分），之后 TFT 永久报复。除了第一轮外双方永远相互背叛。TFT 的报复有效遏制了持续剥削。';
+  }
+  if ((sa === 'always-defect' && sb === 'random') || (sa === 'random' && sb === 'always-defect')) {
+    return '老坏人 vs 疯子：老坏人永远背叛。疯子合作时老坏人得 5 分，双方背叛时各得 1 分。永远背叛的策略对随机策略占明显优势。';
+  }
+  if ((sa === 'always-defect' && sb === 'sneaky') || (sa === 'sneaky' && sb === 'always-defect')) {
+    return '老坏人 vs 阴险小人：阴险小人的前期合作在老坏人面前完全无效——人家根本不看你的伪装，直接背叛。阴险小人的策略在更极端的剥削者面前反而吃亏。';
+  }
+
+  if (sa === 'periodic-betrayer' && sb === 'periodic-betrayer') {
+    return '两个伪君子相遇：双方按各自固定的节奏（取决于模型id，3~5轮合作后背叛一次）运作。当背叛同步时相互背叛，不同步时产生单方面剥削。结果取决于循环节奏的匹配度。';
+  }
+  if ((sa === 'periodic-betrayer' && sb === 'always-cooperate') || (sa === 'always-cooperate' && sb === 'periodic-betrayer')) {
+    return '伪君子 vs 老好人：伪君子定期在合作中穿插一次背叛（每次得 5 分），老好人始终合作。伪君子稳定剥削，占明显优势。';
+  }
+  if ((sa === 'periodic-betrayer' && sb === 'tit-for-tat') || (sa === 'tit-for-tat' && sb === 'periodic-betrayer')) {
+    return '伪君子 vs TFT：伪君子的定期背叛触发 TFT 报复→相互背叛，但伪君子回到合作时 TFT 也恢复合作。一场动态的拉锯战——TFT 的宽容使双方有机会重修旧好。';
+  }
+  if ((sa === 'periodic-betrayer' && sb === 'always-defect') || (sa === 'always-defect' && sb === 'periodic-betrayer')) {
+    return '伪君子 vs 老坏人：伪君子定期合作（得 0 分，被老坏人背叛），背叛回合各得 1 分。伪君子的合作意愿在纯粹恶意面前变成了定期被剥削的窗口。';
+  }
+  if ((sa === 'periodic-betrayer' && sb === 'random') || (sa === 'random' && sb === 'periodic-betrayer')) {
+    return '伪君子 vs 疯子：伪君子按固定节奏出牌，疯子随机选择。伪君子的规律性与疯子的随机性之间产生不可预测的互动。';
+  }
+
+  if (sa === 'tft-hostile' && sb === 'tft-hostile') {
+    return '两个 TFT·恶 相遇：首轮双方都背叛，之后永远相互背叛。不友善开局的灾难——一旦第一轮相互背叛，就陷入无尽的报复循环，再也无法回到合作。与标准 TFT 的完美合作形成鲜明对比。';
+  }
+  if ((sa === 'tft-hostile' && sb === 'tit-for-tat') || (sa === 'tit-for-tat' && sb === 'tft-hostile')) {
+    return 'TFT·恶 vs TFT：TFT·恶 首轮背叛，TFT（首轮合作）被出卖得 0 分。TFT 第二轮报复背叛，此后双方永远相互背叛。一个不友善的开局永久毒化了关系。';
+  }
+  if ((sa === 'tft-hostile' && sb === 'always-cooperate') || (sa === 'always-cooperate' && sb === 'tft-hostile')) {
+    return 'TFT·恶 vs 老好人：TFT·恶 首轮背叛得 5 分，之后模仿老好人的「合作」→从第二轮开始双方反而永远合作！一个出卖的开局后转为持续合作——非常反直觉，展示了 TFT 的模仿机制如何被善良的对手「驯服」。';
+  }
+  if ((sa === 'tft-hostile' && sb === 'always-defect') || (sa === 'always-defect' && sb === 'tft-hostile')) {
+    return 'TFT·恶 vs 老坏人：双方首轮都背叛（各得 1 分），之后永远相互背叛。不友善开局遇上永不合作的对手——没有任何回头路。';
+  }
+  if ((sa === 'tft-hostile' && sb === 'sneaky') || (sa === 'sneaky' && sb === 'tft-hostile')) {
+    return 'TFT·恶 vs 阴险小人：TFT·恶 首轮背叛占了阴险小人前期合作的便宜。先发制人的背叛在对方伪装期就开始收割。';
+  }
+  if ((sa === 'tft-hostile' && sb === 'random') || (sa === 'random' && sb === 'tft-hostile')) {
+    return 'TFT·恶 vs 疯子：首轮背叛后，TFT·恶 模仿疯子的随机行为。双方策略高度耦合，互动混乱而不可预测。';
+  }
+  if ((sa === 'tft-hostile' && sb === 'periodic-betrayer') || (sa === 'periodic-betrayer' && sb === 'tft-hostile')) {
+    return 'TFT·恶 vs 伪君子：TFT·恶 首轮背叛占得先机，之后模仿伪君子的循环节奏。先手背叛的策略在面对有规律的策略时能获得初始优势。';
+  }
+  // ─── 新模型洞察结束 ───
+
+  // Generic
+  const coopA = st.historyA.filter(c => c === 'C').length;
+  const coopB = st.historyB.filter(c => c === 'C').length;
+  if (coopA > coopB * 1.5) {
+    return st.modelA.name + ' 的合作率远高于 ' + st.modelB.name + '。善良的策略在遇到剥削时可能吃亏——阿克塞尔罗德发现，成功策略的关键是在善良与报复之间取得平衡。';
+  }
+  if (coopB > coopA * 1.5) {
+    return st.modelB.name + ' 的合作率远高于 ' + st.modelA.name + '。注意过度善良而缺乏报复的策略在演化竞争中最终会被淘汰。';
+  }
+  return '观察合作率与得分可以理解策略的本质。阿克塞尔罗德的结论是：善良、报复、宽容、清晰——这四个特质是成功策略的基石。TFT 正是因为完美平衡了这些特质而成为总冠军。';
+}
+
+function setInputsDisabled(disabled) {
+  document.getElementById('playerA').disabled = disabled;
+  document.getElementById('playerB').disabled = disabled;
+  document.querySelectorAll('.model-card').forEach(c => {
+    c.style.pointerEvents = disabled ? 'none' : '';
+    c.style.opacity = disabled ? '0.6' : '1';
+  });
+}
+
+function randomBattle() {
+  if (isBattling) {
+    stopBattle();
+    setTimeout(() => randomBattle(), 250);
+    return;
+  }
+  const randomModelId = Math.floor(Math.random() * 7);
+  let randomOppId;
+  do {
+    randomOppId = Math.floor(Math.random() * 7);
+  } while (randomOppId === randomModelId && Math.random() < 0.5);
+  const randomRounds = 10 + Math.floor(Math.random() * 41);
+
+  document.getElementById('playerA').value = randomModelId;
+  document.getElementById('playerB').value = randomOppId;
+  document.getElementById('numRounds').value = randomRounds;
+  selectedModels = new Set([randomModelId, randomOppId]);
+  updateCardSelection();
+  setTimeout(() => startBattle(), 300);
+}
+
+// ═══════════════════════════════════════════
+//  TOURNAMENT MODE (7×7, 15 rounds each)
+// ═══════════════════════════════════════════
+function runTournament() {
+  if (isBattling) stopBattle();
+
+  const TOURNAMENT_ROUNDS = 200;
+  const totalMatches = models.length * models.length; // 49
+  let matchIndex = 0;
+
+  // Reset stats before tournament
+  resetStats();
+
+  // Show arena
+  const arena = document.getElementById('arenaCard');
+  arena.style.display = 'block';
+  document.getElementById('roundsContainer').innerHTML = '';
+  document.getElementById('summaryArea').innerHTML = '';
+  document.getElementById('scoreA').textContent = '锦标赛进行中…';
+  document.getElementById('scoreB').textContent = '';
+  document.getElementById('roundLabel').textContent = '比赛 0 / ' + totalMatches;
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('btnTournament').disabled = true;
+  setInputsDisabled(true);
+
+  arena.scrollIntoView({ behavior: 'smooth' });
+
+  // Collect all tournament results
+  const tournamentScores = {}; // key: "modelAId-modelBId" → {scoreA, scoreB, coopA, coopB}
+  models.forEach(m => { tournamentScores[m.id] = { totalScore: 0, gamesPlayed: 0 }; });
+
+  // Run matches one by one with small delays to keep UI responsive
+  function runNextMatch() {
+    if (matchIndex >= totalMatches) {
+      finishTournament(tournamentScores);
+      return;
+    }
+
+    const row = Math.floor(matchIndex / models.length);
+    const col = matchIndex % models.length;
+    const modelA = models[row];
+    const modelB = models[col];
+
+    // Run silent match
+    const result = runSilentMatch(modelA, modelB, TOURNAMENT_ROUNDS);
+
+    // Accumulate
+    tournamentScores[modelA.id].totalScore += result.scoreA;
+    tournamentScores[modelA.id].gamesPlayed += 1;
+    tournamentScores[modelB.id].totalScore += result.scoreB;
+    tournamentScores[modelB.id].gamesPlayed += 1;
+
+    // Also update the global modelStats
+    modelStats[modelA.id].totalScore += result.scoreA;
+    modelStats[modelA.id].gamesPlayed += 1;
+    modelStats[modelB.id].totalScore += result.scoreB;
+    modelStats[modelB.id].gamesPlayed += 1;
+
+    matchIndex++;
+
+    // Update progress
+    document.getElementById('roundLabel').textContent = '比赛 ' + matchIndex + ' / ' + totalMatches;
+    document.getElementById('progressFill').style.width = (matchIndex / totalMatches * 100) + '%';
+    document.getElementById('scoreA').textContent =
+      modelA.emoji + ' ' + modelA.name + ' vs ' + modelB.emoji + ' ' + modelB.name;
+    document.getElementById('scoreB').textContent =
+      result.scoreA + ' : ' + result.scoreB;
+
+    // Update scoreboard in real-time
+    renderScoreboard([modelA.id, modelB.id]);
+
+    // Schedule next match
+    setTimeout(runNextMatch, 30);
+  }
+
+  runNextMatch();
+}
+
+function runSilentMatch(modelA, modelB, totalRounds) {
+  const historyA = [];
+  const historyB = [];
+  let scoreA = 0;
+  let scoreB = 0;
+
+  for (let round = 1; round <= totalRounds; round++) {
+    const moveA = getMove(modelA, round, historyA, historyB, totalRounds);
+    const moveB = getMove(modelB, round, historyB, historyA, totalRounds);
+    historyA.push(moveA);
+    historyB.push(moveB);
+    const key = moveA + moveB;
+    const [payA, payB] = PAYOFF[key];
+    scoreA += payA;
+    scoreB += payB;
+  }
+
+  return {
+    scoreA, scoreB,
+    coopA: historyA.filter(c => c === 'C').length,
+    coopB: historyB.filter(c => c === 'C').length
+  };
+}
+
+function finishTournament(scores) {
+  // Build standings sorted by average score
+  const standings = models.map(m => ({
+    id: m.id,
+    name: m.name,
+    emoji: m.emoji,
+    totalScore: scores[m.id].totalScore,
+    gamesPlayed: scores[m.id].gamesPlayed,
+    avg: scores[m.id].gamesPlayed > 0
+      ? (scores[m.id].totalScore / scores[m.id].gamesPlayed).toFixed(1)
+      : '—'
+  }));
+
+  standings.sort((a, b) => {
+    if (a.avg === '—') return 1;
+    if (b.avg === '—') return -1;
+    return parseFloat(b.avg) - parseFloat(a.avg);
+  });
+
+  // Build results HTML
+  let tableRows = '';
+  standings.forEach((s, i) => {
+    const rankClass = i === 0 ? 'rank-1 gold-rank' : (i === 1 ? 'rank-2' : (i === 2 ? 'rank-3' : ''));
+    const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : (i + 1)));
+    tableRows +=
+      '<tr class="' + (i < 3 ? 'rank-' + (i + 1) : '') + '">' +
+        '<td style="font-weight:700;">' + medal + '</td>' +
+        '<td>' + s.emoji + ' ' + s.name + '</td>' +
+        '<td><strong>' + s.totalScore + '</strong></td>' +
+        '<td>' + s.gamesPlayed + '</td>' +
+        '<td style="font-weight:700;' + (i === 0 ? 'color:var(--gold);' : '') + '">' + s.avg + '</td>' +
+      '</tr>';
+  });
+
+  document.getElementById('summaryArea').innerHTML =
+    '<div class="summary-banner fade-in">' +
+      '<div class="winner">🏆 锦标赛结果</div>' +
+      '<div style="margin:0.8rem 0;font-size:0.85rem;color:#bbb;">7 款模型 × 7 款模型 = 49 场比赛，每场 200 回合</div>' +
+      '<table class="tournament-table">' +
+        '<thead><tr><th>排名</th><th>模型</th><th>总得分</th><th>场数</th><th>场均</th></tr></thead>' +
+        '<tbody>' + tableRows + '</tbody>' +
+      '</table>' +
+      '<div style="margin-top:1rem;font-size:0.85rem;color:#f0a080;">' +
+        '阿克塞尔罗德的核心发现：善良、报复、宽容、清晰——这四个特质是成功策略的基石。' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('roundLabel').textContent = '锦标赛完成！';
+  document.getElementById('scoreA').textContent = '';
+  document.getElementById('scoreB').textContent = '';
+  document.getElementById('progressFill').style.width = '100%';
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('btnTournament').disabled = false;
+  setInputsDisabled(false);
+  document.getElementById('summaryArea').scrollIntoView({ behavior: 'smooth' });
+
+  // Final scoreboard update
+  renderScoreboard();
+}
+
+function resetAll() {
+  if (isBattling) stopBattle();
+  battleState = null;
+  document.getElementById('arenaCard').style.display = 'none';
+  document.getElementById('roundsContainer').innerHTML = '';
+  document.getElementById('summaryArea').innerHTML = '';
+  document.getElementById('btnStart').textContent = '▶ 开始模拟';
+  document.getElementById('scoreA').textContent = '玩家 A：0 分';
+  document.getElementById('scoreB').textContent = '玩家 B：0 分';
+  document.getElementById('roundLabel').textContent = '回合 0 / 0';
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('numRounds').value = '20';
+  setInputsDisabled(false);
+  document.getElementById('playerA').value = '3';
+  document.getElementById('playerB').value = '1';
+  selectedModels = new Set([3, 1]);
+  updateCardSelection();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
